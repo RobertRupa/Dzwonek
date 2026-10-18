@@ -40,7 +40,13 @@ uint16_t remotePort=61631;
 uint32_t ringCount=0, lastButton=0, lastProbe=0, lastDraw=0;
 bool apActive=false, mdnsActive=false, rcpResponded=false;
 String rcpStatus="waiting", lastEvent="none";
-uint32_t localPin=0;
+String localPin;
+static String generateLocalPin(){
+ String value;value.reserve(11);
+ value += char('1' + (esp_random() % 9));
+ for(int i=1;i<11;i++) value += char('0' + (esp_random() % 10));
+ return value;
+}
 uint32_t rcpFrames=0, rcpErrors=0;
 
 
@@ -171,8 +177,7 @@ refresh();setInterval(refresh,700);
  h.replace("SSID_VALUE",escapeHtml(ssid));
  h.replace("HOST_VALUE",escapeHtml(remoteHost));
  h.replace("PORT_VALUE",String(remotePort));
- char pinText[9];snprintf(pinText,sizeof(pinText),"%08lu",(unsigned long)localPin);
- h.replace("PIN_VALUE",String(pinText));
+ h.replace("PIN_VALUE",localPin);
  return h;
 }
 
@@ -196,8 +201,11 @@ void setup(){
  password=prefs.getString("pass","");
  remoteHost=prefs.getString("host","");
  remotePort=prefs.getUShort("port",61631);
- localPin=prefs.getULong("pin",0);
- if(!localPin){localPin=esp_random()%90000000UL+10000000UL;prefs.putULong("pin",localPin);}
+ localPin=prefs.getString("pin11","");
+ if(localPin.length()!=11){
+  localPin=generateLocalPin();
+  prefs.putString("pin11",localPin);
+ }
  uint64_t mac=ESP.getEfuseMac();char suffix[5];
  snprintf(suffix,sizeof(suffix),"%04X",(unsigned)(mac&0xffff));
  apName="Doorbell-RCP-"+String(suffix);
@@ -212,7 +220,7 @@ void setup(){
  web.on("/",HTTP_GET,[]{web.send(200,"text/html; charset=utf-8",page());});
  web.on("/ring",HTTP_POST,[]{ring();web.sendHeader("Location","/");web.send(303);});
  web.on("/probe",HTTP_POST,[]{probeRcp();web.sendHeader("Location","/");web.send(303);});
- web.on("/pin/generate",HTTP_POST,[]{localPin=esp_random()%90000000UL+10000000UL;prefs.putULong("pin",localPin);web.sendHeader("Location","/");web.send(303);});
+ web.on("/pin/generate",HTTP_POST,[]{localPin=generateLocalPin();prefs.putString("pin11",localPin);web.sendHeader("Location","/");web.send(303);});
  web.on("/api/status",HTTP_GET,[]{web.sendHeader("Cache-Control","no-store");web.send(200,"application/json",statusJson());});
  web.on("/save",HTTP_POST,[]{
    String port=web.arg("port"), newSsid=web.arg("ssid"), newPass=web.arg("pass"), host=web.arg("host");
