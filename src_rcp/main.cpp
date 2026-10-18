@@ -41,6 +41,9 @@ uint16_t remotePort=61631;
 uint32_t ringCount=0, lastButton=0, lastProbe=0, lastDraw=0;
 bool apActive=false, mdnsActive=false, rcpResponded=false;
 String rcpStatus="waiting", lastEvent="none";
+uint32_t rcpFrames=0, rcpCrcErrors=0;
+uint32_t rcpLastRx=0;
+bool rcpProbePending=false;
 // Real commissioning payloads must be provisioned by the Matter endpoint.
 String matterManual, matterQr;
 static bool digitsOnly(const String& value){
@@ -69,10 +72,13 @@ static void hdlcSend(const uint8_t* p,size_t n) {
   rcp.write((uint8_t)0x7e);
 }
 static void probeRcp() {
+  Serial.printf("[H2/RCP] PROBE start t=%lu UART2 baud=%lu RX=GPIO%d TX=GPIO%d\\n", (unsigned long)millis(), (unsigned long)RCP_BAUD, RCP_RX, RCP_TX);
   // Spinel header 0x81 (IID=0, TID=1), CMD_RESET = 1.
   const uint8_t reset[]={0x81,0x01};
   hdlcSend(reset,sizeof(reset));
+  Serial.println("[H2/RCP] TX Spinel RESET: 81 01 (HDLC framed, FCS appended)");
   lastProbe=millis();
+  rcpProbePending=true;
   rcpStatus="probing";
 }
 static void readRcp() {
@@ -85,8 +91,16 @@ static void readRcp() {
       if(n>=4 && !overflowing && hdlcFcs(data,n)==0xf0b8) {
         rcpResponded=true;
         rcpFrames++;
+        rcpLastRx=millis();
+        rcpProbePending=false;
+        Serial.printf("[H2/RCP] RX valid HDLC len=%u FCS=OK payload=", (unsigned)(n-2));
+        for(size_t i=0;i<n-2 && i<48;i++)Serial.printf("%02X ",data[i]);
+        Serial.println();
         rcpStatus="HDLC frame OK";
         // Do not claim a working Thread link: a valid Spinel frame merely proves serial transport.
+      } else if(n || overflowing){
+        rcpCrcErrors++;
+        Serial.printf("[H2/RCP] RX invalid HDLC len=%u overflow=%d fcs=0x%04X (expected 0xF0B8)\\n",(unsigned)n,(int)overflowing,(unsigned)hdlcFcs(data,n));
       }
       n=0;escaped=false;overflowing=false;
       continue;
@@ -103,6 +117,7 @@ static String statusJson(){
  String j="{\"rings\":"+String(ringCount);
  j+=",\"rcp_frame_received\":";j+=(rcpResponded?"true":"false");
  j+=",\"rcp_frames\":"+String(rcpFrames);
+ j+=",\"rcp_errors\":"+String(rcpCrcErrors);
  j+=",\"wifi\":";j+=(WiFi.status()==WL_CONNECTED?"true":"false");
  j+=",\"ip\":\""+WiFi.localIP().toString()+"\"";
  j+=",\"last\":\""+escapeHtml(lastEvent)+"\"";
@@ -273,6 +288,10 @@ void setup(){
 }
 void loop(){
  M5.update();web.handleClient();readRcp();
+ if(rcpProbePending && millis()-lastProbe>2000){
+  rcpProbePending=false;
+  Serial.printf("[H2/RCP] TIMEOUT: no valid response within 2000 ms; RX frames=%lu, errors=%lu. Check H2 RCP UART pin mapping, GND and 460800 baud.\\n",(unsigned long)rcpFrames,(unsigned long)rcpCrcErrors);
+ }
  UdpResult result;
  while(udpResults&&xQueueReceive(udpResults,&result,0)==pdTRUE){
   switch(result){
