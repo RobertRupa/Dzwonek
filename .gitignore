@@ -1,8 +1,56 @@
-.pio
-.cache
-.dummy
-.vscode/.browse.c_cpp.db*
-.vscode/c_cpp_properties.json
-.vscode/launch.json
-.vscode/ipch
-compile_commands.json
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.platformio/
+
+# ESP-IDF / CMake
+**/build/
+**/build-*/
+**/sdkconfig
+**/sdkconfig.old
+**/sdkconfig.*.old
+**/managed_components/
+**/dependencies.lock
+**/compile_commands.json
+CMakeFiles/
+CMakeCache.txt
+firmware-h2-matter/generated/
+**/out/
+**/sdkconfig.defaults.local
+
+# Local secrets
+.env
+.env.*
+!.env.example
+secrets.h
+credentials.h
+wifi_credentials.h
+*.pem
+*.key
+*.p12
+
+# Firmware outputs
+*.bin
+*.elf
+*.map
+*.hex
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.code-workspace
+
+# OS / Python / transient
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.log
+*.tmp
+*.swp
+*~
