@@ -137,3 +137,8 @@ H2 na RCP samo w sobie **nie uruchamia Matter ani dzwonka**. Wymagany jest
 host OpenThread/Matter, którego jeszcze nie ma w obecnym firmware M5Stick.
 Wariant `firmware-h2-matter` / `light_switch` pozostaje dostępny osobno.
 Dokumentacja i opis UART: [firmware-h2-rcp/README.md](firmware-h2-rcp/README.md).
+
+
+## StickC Plus2 + H2 RCP: osobny target diagnostyczny
+
+`pio run -e m5stickc_plus2_rcp` kompiluje niezależne firmware M5StickC Plus2 do testu UART Spinel/HDLC z H2 RCP (460800 baud); Button B wysyła Spinel RESET. Button A wysyła zdarzenie dzwonka UDP po Wi-Fi. **To nie jest host OpenThread/Matter** — sam natywny RCP na H2 nie oferuje PIN/QR ani obsługi Thread na Sticku. Domyślny target `m5stickc_plus2` pozostaje bez zmian. Szczegóły: [docs/m5stick-rcp-target.md](docs/m5stick-rcp-target.md).
