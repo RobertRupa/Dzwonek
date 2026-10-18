@@ -7,7 +7,7 @@ Ten target jest osobny od `firmware-h2-matter/` (`light_switch`). Kopiuje oficja
 ```bash
 source "$HOME/esp/esp-idf/export.sh"
 cd ~/Documents/Dzwonek
-./firmware-h2-rcp/scripts/prepare.sh
+bash ./firmware-h2-rcp/scripts/prepare.sh
 cd firmware-h2-rcp/generated/ot_rcp
 idf.py set-target esp32h2
 idf.py build
