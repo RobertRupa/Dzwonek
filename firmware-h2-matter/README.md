@@ -12,12 +12,12 @@ This directory contains a *source overlay* for the official [esp-matter `light_s
 4. `cd firmware-h2-matter/generated/light_switch`
 5. `idf.py set-target esp32h2 && idf.py menuconfig && idf.py build`
 6. **Check build size / flash partitions for 2 MB U195**. If the image cannot fit, do not flash it: remove unused features or choose an H2 module with more flash. The original upstream sample is often configured for other boards and 4 MB.
-7. **Verify U195 internal UART GPIO mapping from the schematic** before flashing. The defaults `H2 RX=GPIO4`, `H2 TX=GPIO5` are only placeholders. Grove wiring alone does not establish internal H2 pins. Edit `Doorbell UART link` menuconfig entries.
+7. **Verify U195 UART routing and monitor configuration** before flashing. The U195 Grove interface uses `H2 RX=GPIO23`, `H2 TX=GPIO24` (UART0 pins). The bridge uses `UART_NUM_1` routed through those GPIOs, and the console is configured for USB Serial/JTAG. After generating, inspect `sdkconfig` and check for conflicting GPIO usage.
 8. Flash H2 over its own USB interface with `idf.py -p /dev/ttyACM0 flash monitor` (use actual detected port). Flash the M5StickC via PlatformIO separately.
 
 ### UART protocol
 
-`MATTER INFO` => `MATTER 20202021 34970112332 MT:Y.K9042C00KA0648G00 available` for **unmodified official development onboarding defaults** only. This is illustrative, not production security. `RING ...` triggers the upstream light-switch On/Off *client* toggle event, which needs Matter binding to an appropriate On/Off server. `HELLO`, `STATUS` are supported. Legacy `DATASET` / `TARGET` / UDP are not supported in this firmware.
+`MATTER INFO` => `MATTER 20202021 34970112332 MT:Y.K9042C00KA0648G00 available` for **unmodified official development onboarding defaults** only. This is illustrative, not production security. `RING ...` triggers the upstream light-switch On/Off *client* toggle event, which needs Matter binding to an appropriate On/Off server. `PING` → `PONG H2 UART 115200`, `HELLO`, `STATUS` are supported. If there is no `H2 <` response in the M5Stick serial monitor, check H2 power, flashed firmware, GPIO23/24 and crossed UART lines. Legacy `DATASET` / `TARGET` / UDP are not supported in this firmware.
 
 > Note: PIN, manual code and QR MUST correspond to actual installed commissioning data. If you change provisioning, replace the constants in `overlay/doorbell_uart.cpp` with an API reading your actual commissioning payload from CHIP (do not keep hardcoded constants). Test firmware is **not secure for public deployment**.
 
@@ -32,3 +32,8 @@ The QR is an **onboarding QR for firmware that actually runs the Matter stack**,
 ### Security
 
 The project's original AP is open and has no web authentication as requested. Anybody nearby can view the Matter onboarding code, change Wi-Fi credentials, and invoke the bell. Disable the AP or add authentication before deploying in a shared/public environment. The demo setup code is also shared with other development devices. Production devices require distinct commissioning data and secure provisioning.
+
+
+### Zmiana konfiguracji / odświeżenie projektu
+
+Ponownie uruchom `prepare.sh` po aktualizacji kodu. Skrypt usuwa tylko wygenerowaną kopię `generated/light_switch`. W `idf.py menuconfig` upewnij się, że konsola jest na USB Serial/JTAG, GPIO RX=23, TX=24. Po zmianie `sdkconfig.defaults` istniejące `sdkconfig` może zachować stare wartości — użyj `idf.py reconfigure` lub wygeneruj konfigurację od nowa. Brak kodu Matter na M5Stick nie dowodzi błędu kodu parowania; najpierw sprawdź odpowiedź `PONG` z H2.
