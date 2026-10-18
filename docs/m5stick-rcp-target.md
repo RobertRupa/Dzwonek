@@ -30,3 +30,19 @@ Hasło WPA ma 8–63 znaków. Pozostawienie pustego pola zachowuje hasło tylko 
 Log `DNS failed: verify destination` wskazuje problem z nazwą odbiorcy lub DNS. Nie potwierdza błędnego hasła do Wi-Fi. Dla diagnostyki sprawdź status połączenia i odbiorcę w WebGUI.
 
 Weryfikacja kompilacji i testy na rzeczywistym sprzęcie pozostają do wykonania.
+
+## WebGUI na żywo i powiadomienia
+
+Panel odświeża `/api/status` co 700 ms, bez przeładowywania całej strony. Zawiera licznik ramek Spinel/HDLC, stan RCP i licznik naciśnięć dzwonka. Po kliknięciu **Włącz dźwięk przeglądarki** używa Web Audio API do odtwarzania dźwięku przy wzroście licznika naciśnięć. Otwarcie karty bez wcześniejszego kliknięcia nie gwarantuje dźwięku — Chrome wymaga gestu użytkownika. Dźwięk dotyczy tego konkretnego otwartego WebGUI i działa, dopóki działa strona i polling.
+
+PIN dostępny w WebGUI jest **lokalnym, losowo wygenerowanym kodem identyfikacyjnym/testowym** zapisywanym w NVS. **Nie jest PIN-em ani kodem QR Matter**. Podstawowy firmware H2 RCP nie ma własnego Matter commissioning.
+
+## Odbiór UDP
+
+Poprzedni skrypt `tools/udp_receiver.py` nasłuchiwał tylko IPv6. Obecny target StickC nadaje po IPv4; zaktualizowany odbiornik przyjmuje obydwie rodziny:
+
+```bash
+python3 tools/udp_receiver.py --port 61631
+```
+
+W konfiguracji dzwonka ustaw IPv4 komputera uruchamiającego odbiornik oraz port 61631. Do broadcastu w typowej podsieci `192.168.68.0/24` służy `192.168.68.255`, ale konkretna maska i polityka Wi-Fi/VLAN mogą się różnić. Sprawdź ruch przez `sudo tcpdump -ni any udp port 61631` oraz reguły zapory (np. UFW). Komunikat `UDP sent (unconfirmed)` nie gwarantuje dostarczenia.
