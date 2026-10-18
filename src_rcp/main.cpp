@@ -72,7 +72,7 @@ static void hdlcSend(const uint8_t* p,size_t n) {
   rcp.write((uint8_t)0x7e);
 }
 static void probeRcp() {
-  Serial.printf("[H2/RCP] PROBE start t=%lu UART2 baud=%lu RX=GPIO%d TX=GPIO%d\\n", (unsigned long)millis(), (unsigned long)RCP_BAUD, RCP_RX, RCP_TX);
+  Serial.printf("[H2/RCP] PROBE start t=%lu UART2 baud=%lu RX=GPIO%d TX=GPIO%d\n", (unsigned long)millis(), (unsigned long)RCP_BAUD, RCP_RX, RCP_TX);
   // Spinel header 0x81 (IID=0, TID=1), CMD_RESET = 1.
   const uint8_t reset[]={0x81,0x01};
   hdlcSend(reset,sizeof(reset));
@@ -100,7 +100,7 @@ static void readRcp() {
         // Do not claim a working Thread link: a valid Spinel frame merely proves serial transport.
       } else if(n || overflowing){
         rcpCrcErrors++;
-        Serial.printf("[H2/RCP] RX invalid HDLC len=%u overflow=%d fcs=0x%04X (expected 0xF0B8)\\n",(unsigned)n,(int)overflowing,(unsigned)hdlcFcs(data,n));
+        Serial.printf("[H2/RCP] RX invalid HDLC len=%u overflow=%d fcs=0x%04X (expected 0xF0B8)\n",(unsigned)n,(int)overflowing,(unsigned)hdlcFcs(data,n));
       }
       n=0;escaped=false;overflowing=false;
       continue;
@@ -290,7 +290,7 @@ void loop(){
  M5.update();web.handleClient();readRcp();
  if(rcpProbePending && millis()-lastProbe>2000){
   rcpProbePending=false;
-  Serial.printf("[H2/RCP] TIMEOUT: no valid response within 2000 ms; RX frames=%lu, errors=%lu. Check H2 RCP UART pin mapping, GND and 460800 baud.\\n",(unsigned long)rcpFrames,(unsigned long)rcpCrcErrors);
+  Serial.printf("[H2/RCP] TIMEOUT: no valid response within 2000 ms; RX frames=%lu, errors=%lu. Check H2 RCP UART pin mapping, GND and 460800 baud.\n",(unsigned long)rcpFrames,(unsigned long)rcpCrcErrors);
  }
  UdpResult result;
  while(udpResults&&xQueueReceive(udpResults,&result,0)==pdTRUE){
