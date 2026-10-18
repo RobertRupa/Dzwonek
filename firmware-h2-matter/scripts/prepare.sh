@@ -4,13 +4,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${ESP_MATTER_PATH:?Set ESP_MATTER_PATH to an installed esp-matter checkout}"
 UPSTREAM="$ESP_MATTER_PATH/examples/light_switch"
 DEST="$ROOT/generated/light_switch"
-[[ -d "$UPSTREAM/main" ]] || { echo "Missing official light_switch example at $UPSTREAM" >&2; exit 1; }
+[[ -f "$UPSTREAM/main/app_main.cpp" ]] || { echo "Missing official light_switch example at $UPSTREAM" >&2; exit 1; }
 mkdir -p "$ROOT/generated"
 rm -rf "$DEST"
 cp -a "$UPSTREAM" "$DEST"
 cp "$ROOT/overlay/doorbell_uart.cpp" "$DEST/main/doorbell_uart.cpp"
 cp "$ROOT/overlay/doorbell_uart.h" "$DEST/main/doorbell_uart.h"
-cp "$ROOT/overlay/Kconfig.projbuild" "$DEST/main/Kconfig.projbuild"
+cat "$ROOT/overlay/Kconfig.projbuild" >> "$DEST/main/Kconfig.projbuild"
 python3 - "$DEST" <<'PY'
 from pathlib import Path
 import sys
@@ -36,9 +36,9 @@ s=s.replace('    return (app_driver_handle_t)btns[0];','    return nullptr;')
 p.write_text(s)
 # Ensure correct flash capacity of U195 H2-MINI-1-N2 (2 MB).
 p=root/'sdkconfig.defaults';s=p.read_text().replace('CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y','CONFIG_ESPTOOLPY_FLASHSIZE_2MB=y')
-s+='\nCONFIG_DB_H2_UART_RX=4\nCONFIG_DB_H2_UART_TX=5\n'
+s+='\nCONFIG_DB_H2_UART_RX=23\nCONFIG_DB_H2_UART_TX=24\nCONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y\nCONFIG_ESP_CONSOLE_UART_DEFAULT=n\n'
 p.write_text(s)
 PY
 printf 'Created %s\n' "$DEST"
-echo 'Check RX/TX GPIO against the exact U195 schematic before flashing.'
+echo 'U195 Grove: H2 RX=GPIO23, TX=GPIO24 (UART0 pins; console via USB Serial/JTAG). Confirm flash partition fit before flashing.'
 echo "cd '$DEST'; idf.py set-target esp32h2; idf.py menuconfig; idf.py build"
