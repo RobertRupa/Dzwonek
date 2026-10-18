@@ -161,7 +161,7 @@ void setup(){
   M5.Display.setRotation(0);M5.Display.setTextSize(1);
   loadConfig();h2.begin(H2_BAUD,SERIAL_8N1,H2_RX,H2_TX);
   WiFi.persistent(false);startAP();connectWifi();initHttp();
-  delay(350);sendH2("HELLO");sendH2("MATTER INFO");
+  delay(350);sendH2("PING");sendH2("HELLO");sendH2("MATTER INFO");
   if(h2Dataset.length()) sendH2("DATASET "+h2Dataset);
   if(targetIPv6.length())sendH2("TARGET "+targetIPv6+" "+String(destPort));
   drawScreen();
@@ -169,9 +169,9 @@ void setup(){
 void loop(){
   M5.update();server.handleClient();pollH2();
   if(M5.BtnA.wasPressed()&&millis()-lastPress>300){lastPress=millis();ring();}
-  if(M5.BtnB.wasPressed()){screenPage^=1;sendH2("MATTER INFO");Serial.printf("STATUS wifi=%d h2=%s ip=%s\n",WiFi.status(),h2Status.c_str(),WiFi.localIP().toString().c_str());sendH2("STATUS");}
+  if(M5.BtnB.wasPressed()){screenPage^=1;sendH2("PING");sendH2("MATTER INFO");Serial.printf("STATUS wifi=%d h2=%s ip=%s\n",WiFi.status(),h2Status.c_str(),WiFi.localIP().toString().c_str());sendH2("STATUS");}
   if(millis()-lastMatterQuery>15000 && matterQr.isEmpty()){lastMatterQuery=millis();sendH2("MATTER INFO");}
-  if(millis()-lastH2Status>10000){lastH2Status=millis();sendH2("STATUS");}
+  if(millis()-lastH2Status>10000){lastH2Status=millis();sendH2("PING");sendH2("STATUS");}
   if(millis()-lastWifiCheck>15000){lastWifiCheck=millis();if(WiFi.status()!=WL_CONNECTED&&ssid.length())connectWifi();if(WiFi.status()==WL_CONNECTED&&!mdnsActive){mdnsActive=MDNS.begin("thread-doorbell");}}
   if(millis()-lastScreen>1200){lastScreen=millis();drawScreen();}
   delay(5);
