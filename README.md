@@ -142,3 +142,8 @@ Dokumentacja i opis UART: [firmware-h2-rcp/README.md](firmware-h2-rcp/README.md)
 ## StickC Plus2 + H2 RCP: osobny target diagnostyczny
 
 `pio run -e m5stickc_plus2_rcp` kompiluje niezależne firmware M5StickC Plus2 do testu UART Spinel/HDLC z H2 RCP (460800 baud); Button B wysyła Spinel RESET. Button A wysyła zdarzenie dzwonka UDP po Wi-Fi. **To nie jest host OpenThread/Matter** — sam natywny RCP na H2 nie oferuje PIN/QR ani obsługi Thread na Sticku. Domyślny target `m5stickc_plus2` pozostaje bez zmian. Szczegóły: [docs/m5stick-rcp-target.md](docs/m5stick-rcp-target.md).
+
+
+## Thread Border Router i docelowy Matter Host
+
+Istniejąca sieć Espressif Thread Border Router powinna być użyta bez ponownego `Form Network`. Instrukcja integracji RCP, hosta Matter/Thread, pobrania Active Dataset oraz bezpiecznego provisioningu znajduje się w [docs/thread-matter-host-integration.md](docs/thread-matter-host-integration.md). **Stan obecny:** `m5stickc_plus2_rcp` nadal jest tylko targetem diagnostycznym Spinel + UDP przez Wi-Fi; rzeczywisty Matter Host i commissioning na StickC nie zostały jeszcze zaimplementowane.
