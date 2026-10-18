@@ -5,6 +5,7 @@
 #include <Preferences.h>
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
+#include <qrcode.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 
@@ -40,16 +41,13 @@ uint16_t remotePort=61631;
 uint32_t ringCount=0, lastButton=0, lastProbe=0, lastDraw=0;
 bool apActive=false, mdnsActive=false, rcpResponded=false;
 String rcpStatus="waiting", lastEvent="none";
-String localPin;
-static String generateLocalPin(){
- String value;value.reserve(11);
- value += char('1' + (esp_random() % 9));
- for(int i=1;i<11;i++) value += char('0' + (esp_random() % 10));
- return value;
+// Real commissioning payloads must be provisioned by the Matter endpoint.
+String matterManual, matterQr;
+static bool digitsOnly(const String& value){
+ if(value.length()!=11 && value.length()!=21)return false;
+ for(size_t i=0;i<value.length();i++)if(value[i]<'0'||value[i]>'9')return false;
+ return true;
 }
-uint32_t rcpFrames=0, rcpErrors=0;
-
-
 // Spinel framing over HDLC-lite, CRC-16/CCITT (reflected 0x8408), initial FFFF.
 static uint16_t hdlcFcs(const uint8_t* p,size_t len) {
   uint16_t fcs=0xffff;
@@ -121,10 +119,15 @@ static String page(){
 <p><button id="audio" type="button">Włącz dźwięk przeglądarki</button><span id="audioState"> Wyłączony</span></p>
 <form method="POST" action="/ring"><button type="submit">Test dzwonka</button></form>
 <form method="POST" action="/probe"><button type="submit">Diagnostyka RCP</button></form>
-</section><section class="card"><h2>Kod urządzenia (lokalny)</h2>
-<p>PIN: <b>PIN_VALUE</b></p>
-<p>To kod identyfikacyjny/testowy StickC, NIE kod parowania Matter. RCP nie ma własnego PIN Matter.</p>
-<form method="POST" action="/pin/generate"><button type="submit">Wygeneruj nowy PIN</button></form></section>
+</section><section class="card"><h2>Onboarding Matter (zewnętrzny endpoint)</h2>
+<p>Kod manualny: <strong>MANUAL_VALUE</strong></p>
+<p>QR payload: <span>QR_VALUE</span></p>
+<p><img alt="Matter QR" src="/matter.svg" width="235" height="235"></p>
+<p>Wklej tylko dane odczytane z <b>rzeczywiście działającego Matter endpointu</b>, którego setup passcode, discriminator oraz verifier odpowiadają tym kodom. Sam RCP H2 nie posiada PIN Matter ani commissioning.</p>
+<form method="POST" action="/matter/save">
+<p>Kod manualny (11 lub 21 cyfr): <input name="manual" inputmode="numeric" maxlength="21" value="MANUAL_INPUT"></p>
+<p>Payload QR MT: <input name="qr" maxlength="256" value="QR_INPUT"></p>
+<button type="submit">Zapisz dane endpointu</button></form></section>
 <section class="card"><h2>Konfiguracja</h2><form method="POST" action="/save">
 <p>SSID <input name="ssid" value="SSID_VALUE" maxlength="32"></p>
 <p>Hasło Wi-Fi <input type="password" name="pass" maxlength="63" placeholder="puste = zachowaj dla tego samego SSID"></p>
@@ -177,7 +180,10 @@ refresh();setInterval(refresh,700);
  h.replace("SSID_VALUE",escapeHtml(ssid));
  h.replace("HOST_VALUE",escapeHtml(remoteHost));
  h.replace("PORT_VALUE",String(remotePort));
- h.replace("PIN_VALUE",localPin);
+ h.replace("MANUAL_VALUE",matterManual.isEmpty()?"brak":escapeHtml(matterManual));
+ h.replace("QR_VALUE",matterQr.isEmpty()?"brak":escapeHtml(matterQr));
+ h.replace("MANUAL_INPUT",escapeHtml(matterManual));
+ h.replace("QR_INPUT",escapeHtml(matterQr));
  return h;
 }
 
@@ -201,11 +207,8 @@ void setup(){
  password=prefs.getString("pass","");
  remoteHost=prefs.getString("host","");
  remotePort=prefs.getUShort("port",61631);
- localPin=prefs.getString("pin11","");
- if(localPin.length()!=11){
-  localPin=generateLocalPin();
-  prefs.putString("pin11",localPin);
- }
+ matterManual=prefs.getString("matterManual","");
+ matterQr=prefs.getString("matterQr","");
  uint64_t mac=ESP.getEfuseMac();char suffix[5];
  snprintf(suffix,sizeof(suffix),"%04X",(unsigned)(mac&0xffff));
  apName="Doorbell-RCP-"+String(suffix);
@@ -220,7 +223,32 @@ void setup(){
  web.on("/",HTTP_GET,[]{web.send(200,"text/html; charset=utf-8",page());});
  web.on("/ring",HTTP_POST,[]{ring();web.sendHeader("Location","/");web.send(303);});
  web.on("/probe",HTTP_POST,[]{probeRcp();web.sendHeader("Location","/");web.send(303);});
- web.on("/pin/generate",HTTP_POST,[]{localPin=generateLocalPin();prefs.putString("pin11",localPin);web.sendHeader("Location","/");web.send(303);});
+ web.on("/matter/save",HTTP_POST,[]{
+  String manual=web.arg("manual"),qr=web.arg("qr");
+  manual.trim();qr.trim();
+  if((manual.length()&&!digitsOnly(manual))||
+     (qr.length()&&(!qr.startsWith("MT:")||qr.length()>256))){
+    web.send(400,"text/plain","Invalid Matter code format");return;
+  }
+  matterManual=manual;matterQr=qr;
+  prefs.putString("matterManual",matterManual);
+  prefs.putString("matterQr",matterQr);
+  web.sendHeader("Location","/");web.send(303);
+ });
+ web.on("/matter.svg",HTTP_GET,[]{
+  if(matterQr.isEmpty()){web.send(404,"text/plain","No Matter QR provisioned");return;}
+  constexpr uint8_t version=8;
+  uint8_t data[qrcode_getBufferSize(version)];
+  QRCode q;
+  if(qrcode_initText(&q,data,version,ECC_LOW,matterQr.c_str())!=0){
+   web.send(422,"text/plain","QR payload too large");return;
+  }
+  String svg="<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 "+String(q.size)+" "+String(q.size)+"' shape-rendering='crispEdges'><rect width='100%' height='100%' fill='white'/>";
+  for(int y=0;y<q.size;y++)for(int x=0;x<q.size;x++)
+    if(qrcode_getModule(&q,x,y))svg+="<rect x='"+String(x)+"' y='"+String(y)+"' width='1' height='1' fill='black'/>";
+  svg+="</svg>";
+  web.send(200,"image/svg+xml",svg);
+ });
  web.on("/api/status",HTTP_GET,[]{web.sendHeader("Cache-Control","no-store");web.send(200,"application/json",statusJson());});
  web.on("/save",HTTP_POST,[]{
    String port=web.arg("port"), newSsid=web.arg("ssid"), newPass=web.arg("pass"), host=web.arg("host");
