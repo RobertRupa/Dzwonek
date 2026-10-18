@@ -113,3 +113,27 @@ pełnej kompilacji na każdym wydaniu platformy 55.x.
 - This is a **development proof-of-concept**, not a confirmed fully buildable U195 Matter binary: 2 MB flash may prevent the example from fitting, and internal H2 UART GPIO defaults require board-schematic verification. It uses the standard Espressif *test* setup credentials (PIN 20202021, manual 34970112332, QR `MT:Y.K9042C00KA0648G00`) and assumes you have not changed the factory provisioning.
 - Firmware in `firmware-h2/` is **legacy OpenThread/UDP only**. It cannot commission Matter. To use the Matter PIN, install the Matter firmware from `firmware-h2-matter/` on H2.
 - The Matter firmware exposes an On/Off switch with binding, **not yet a native Matter doorbell/Generic Switch event**. The controller must configure Matter bindings/ACLs after commissioning.
+
+
+## Natywny ESP32-H2 RCP (osobny target)
+
+Do pracy H2 wyłącznie jako radiowy koprocesor OpenThread/Spinel użyj
+`firmware-h2-rcp/` (bez ESP-Matter i błędu `chip_gn`):
+
+```bash
+source ~/esp/esp-idf/export.sh
+bash firmware-h2-rcp/scripts/prepare.sh
+cd firmware-h2-rcp/generated/ot_rcp
+idf.py set-target esp32h2
+idf.py build
+idf.py size
+# Po sprawdzeniu podłączeń, GPIO i sdkconfig:
+idf.py -p /dev/ttyACM0 flash
+```
+
+**Uwaga:** obecna aplikacja M5StickC Plus2 używa własnych tekstowych
+poleceń UART, a RCP używa binarnego Spinel (460800 baud). Przełączenie
+H2 na RCP samo w sobie **nie uruchamia Matter ani dzwonka**. Wymagany jest
+host OpenThread/Matter, którego jeszcze nie ma w obecnym firmware M5Stick.
+Wariant `firmware-h2-matter` / `light_switch` pozostaje dostępny osobno.
+Dokumentacja i opis UART: [firmware-h2-rcp/README.md](firmware-h2-rcp/README.md).
