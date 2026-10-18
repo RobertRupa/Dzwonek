@@ -37,3 +37,21 @@ The project's original AP is open and has no web authentication as requested. An
 ### Zmiana konfiguracji / odświeżenie projektu
 
 Ponownie uruchom `prepare.sh` po aktualizacji kodu. Skrypt usuwa tylko wygenerowaną kopię `generated/light_switch`. W `idf.py menuconfig` upewnij się, że konsola jest na USB Serial/JTAG, GPIO RX=23, TX=24. Po zmianie `sdkconfig.defaults` istniejące `sdkconfig` może zachować stare wartości — użyj `idf.py reconfigure` lub wygeneruj konfigurację od nowa. Brak kodu Matter na M5Stick nie dowodzi błędu kodu parowania; najpierw sprawdź odpowiedź `PONG` z H2.
+
+
+### U195 2 MB: single factory image, without OTA
+
+The source `examples/light_switch/partitions.csv` targets 4 MB with two OTA slots. The `prepare.sh` overlay replaces it with `overlay/partitions_2mb.csv`, reserving the app region from 0x20000 to 0x1e0000 (1,835,008 bytes) and retaining the NVS/fctry partitions. OTA Requestor and CHIP shell are disabled. **An app image larger than the factory app partition will not fit.** A successful partition-table generation is not proof the complete Matter binary fits on H2-MINI-1-N2.
+
+Recreate generated sources after pulling repo changes (this deletes the previously generated example; preserve any local modifications first):
+
+```bash
+cd ~/Documents/Dzwonek
+export ESP_MATTER_PATH=$HOME/esp/esp-matter
+./firmware-h2-matter/scripts/prepare.sh
+cd firmware-h2-matter/generated/light_switch
+idf.py set-target esp32h2
+idf.py build
+```
+
+Do not change the configured 2 MB flash size to 4 MB on a 2 MB module. This image has no OTA partition. If the binary overflows, feature trimming or a higher-flash module is required.
