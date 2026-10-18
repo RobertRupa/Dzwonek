@@ -1,8 +1,8 @@
 menu "Doorbell UART link"
 config DB_H2_UART_RX
     int "UART RX GPIO (H2 pin from M5Stick GPIO32)"
-    default 4
+    default 23
 config DB_H2_UART_TX
     int "UART TX GPIO (H2 pin to M5Stick GPIO33)"
-    default 5
+    default 24
 endmenu
