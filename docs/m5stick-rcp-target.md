@@ -46,3 +46,11 @@ python3 tools/udp_receiver.py --port 61631
 ```
 
 W konfiguracji dzwonka ustaw IPv4 komputera uruchamiającego odbiornik oraz port 61631. Do broadcastu w typowej podsieci `192.168.68.0/24` służy `192.168.68.255`, ale konkretna maska i polityka Wi-Fi/VLAN mogą się różnić. Sprawdź ruch przez `sudo tcpdump -ni any udp port 61631` oraz reguły zapory (np. UFW). Komunikat `UDP sent (unconfirmed)` nie gwarantuje dostarczenia.
+
+## Diagnostyka H2 na konsoli USB StickC Plus2
+
+Po uruchomieniu `pio device monitor -b 115200` firmware zapisuje do portu Serial: początek sondowania, GPIO i baudrate, ramkę TX Spinel RESET, odebrane ramki HDLC w HEX, błędne CRC i timeout 2000 ms. Przyciskiem B można ponowić sondowanie. Komunikat `RX valid HDLC` potwierdza transport, **nie** gotowość sieci Thread/Matter. Przy braku ramek sprawdź RX/TX, GND, piny U195 i tryb RCP UART zamiast RCP USB.
+
+## Matter QR / kod manualny
+
+Lokalny, losowy 11-cyfrowy kod usunięto. Strona wyświetla teraz importowany kod manualny i QR payload rzeczywistego endpointu Matter. Sam ESP32-H2 jako RCP nie ma aplikacji Matter ani danych commissioning; import/wyświetlanie nie umożliwia parowania StickC. Kod QR i manualny muszą odpowiadać setup passcode/discriminator/verifier działającego endpointu.
