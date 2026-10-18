@@ -40,6 +40,9 @@ uint16_t remotePort=61631;
 uint32_t ringCount=0, lastButton=0, lastProbe=0, lastDraw=0;
 bool apActive=false, mdnsActive=false, rcpResponded=false;
 String rcpStatus="waiting", lastEvent="none";
+uint32_t localPin=0;
+uint32_t rcpFrames=0, rcpErrors=0;
+
 
 // Spinel framing over HDLC-lite, CRC-16/CCITT (reflected 0x8408), initial FFFF.
 static uint16_t hdlcFcs(const uint8_t* p,size_t len) {
@@ -77,6 +80,7 @@ static void readRcp() {
     if(c==0x7e) {
       if(n>=4 && !overflowing && hdlcFcs(data,n)==0xf0b8) {
         rcpResponded=true;
+        rcpFrames++;
         rcpStatus="HDLC frame OK";
         // Do not claim a working Thread link: a valid Spinel frame merely proves serial transport.
       }
@@ -91,25 +95,87 @@ static void readRcp() {
 static String escapeHtml(String s){
  s.replace("&","&amp;");s.replace("<","&lt;");s.replace(">","&gt;");s.replace("\"","&quot;");return s;
 }
+static String statusJson(){
+ String j="{\"rings\":"+String(ringCount);
+ j+=",\"rcp_frame_received\":";j+=(rcpResponded?"true":"false");
+ j+=",\"rcp_frames\":"+String(rcpFrames);
+ j+=",\"wifi\":";j+=(WiFi.status()==WL_CONNECTED?"true":"false");
+ j+=",\"ip\":\""+WiFi.localIP().toString()+"\"";
+ j+=",\"last\":\""+escapeHtml(lastEvent)+"\"";
+ j+=",\"rcp\":\""+escapeHtml(rcpStatus)+"\"}";
+ return j;
+}
 static String page(){
- String h="<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Doorbell RCP</title></head><body><h2>M5StickC Plus2 / H2 RCP</h2>";
- h+="<p>WiFi: "+escapeHtml(WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():"offline")+"</p>";
- h+="<p>RCP: "+escapeHtml(rcpStatus)+" (serial diagnostic only)</p>";
- h+="<p>Rings: "+String(ringCount)+"; last: "+escapeHtml(lastEvent)+"</p>";
- h+="<form method='post' action='/ring'><button>Ring (WiFi UDP)</button></form>";
- h+="<form method='post' action='/probe'><button>Probe H2 RCP</button></form>";
- h+="<h3>Settings</h3><form method='post' action='/save'>";
- h+="Name/hostname is not used in event format.<p>WiFi SSID <input name='ssid' value='"+escapeHtml(ssid)+"'></p>";
- h+="<p>WiFi password <input type='password' name='pass' maxlength='63' placeholder='unchanged if same SSID'></p>";
- h+="<p><label><input type='checkbox' name='open' value='1'> Open WiFi network (no password)</label></p>";
- h+="<p><small>WPA password: 8-63 chars. When changing SSID, enter a new password.</small></p>";
- h+="<p>UDP destination IPv4 / hostname (not URL) <input name='host' value='"+escapeHtml(remoteHost)+"'></p>";
- h+="<p>UDP port <input type='number' min='1' max='65535' name='port' value='"+String(remotePort)+"'></p>";
- h+="<button>Save and restart</button></form>";
- h+="<p>H2 uses Spinel/HDLC at 460800 baud. No Matter commissioning or Thread data plane on Stick in this target.</p>";
- h+="<p>Setup AP has no password. Do not expose on an untrusted network.</p></body></html>";
+ String h=R"WEB(<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Doorbell + H2 diagnostic</title>
+<style>body{font:16px system-ui;background:#111827;color:#f3f4f6;margin:0;padding:20px}main{max-width:630px;margin:auto}.card{background:#253249;border-radius:12px;padding:18px;margin:12px 0}button,input{font:inherit;padding:9px;margin:5px}input{max-width:95%}button{cursor:pointer}</style></head><body><main><h1>Doorbell / StickC Plus2</h1><section class="card">
+<p>Wi-Fi: <strong id="wifi">...</strong> IP: <span id="ip">...</span></p>
+<p>H2 RCP: <strong id="rcp">...</strong> / ramki: <span id="frames">0</span></p>
+<p>Naciśnięcia: <strong id="rings">0</strong></p>
+<p>UDP: <span id="last">...</span></p>
+<p><button id="audio" type="button">Włącz dźwięk przeglądarki</button><span id="audioState"> Wyłączony</span></p>
+<form method="POST" action="/ring"><button type="submit">Test dzwonka</button></form>
+<form method="POST" action="/probe"><button type="submit">Diagnostyka RCP</button></form>
+</section><section class="card"><h2>Kod urządzenia (lokalny)</h2>
+<p>PIN: <b>PIN_VALUE</b></p>
+<p>To kod identyfikacyjny/testowy StickC, NIE kod parowania Matter. RCP nie ma własnego PIN Matter.</p>
+<form method="POST" action="/pin/generate"><button type="submit">Wygeneruj nowy PIN</button></form></section>
+<section class="card"><h2>Konfiguracja</h2><form method="POST" action="/save">
+<p>SSID <input name="ssid" value="SSID_VALUE" maxlength="32"></p>
+<p>Hasło Wi-Fi <input type="password" name="pass" maxlength="63" placeholder="puste = zachowaj dla tego samego SSID"></p>
+<p><label><input type="checkbox" name="open" value="1">Otwarta sieć Wi-Fi</label></p>
+<p>UDP IPv4/hostname <input name="host" value="HOST_VALUE"></p>
+<p>Port <input name="port" type="number" min="1" max="65535" value="PORT_VALUE"></p>
+<button type="submit">Zapisz</button></form>
+<p>Otwarty AP bez hasła — wyłącznie środowisko testowe.</p>
+</section>
+<script>
+let ctx=null, lastRings=null;
+document.getElementById('audio').onclick=async()=>{
+ try{
+  ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+  await ctx.resume();
+  document.getElementById('audioState').textContent=' Włączony';
+  tone();
+ }catch(e){document.getElementById('audioState').textContent=' Zablokowany: '+e.message;}
+};
+function tone(){
+ if(!ctx||ctx.state!=='running')return;
+ const now=ctx.currentTime;
+ for(const delay of [0,0.24]){
+  const osc=ctx.createOscillator(),gain=ctx.createGain();
+  osc.type='sine';osc.frequency.value=880;
+  gain.gain.setValueAtTime(0.0001,now+delay);
+  gain.gain.exponentialRampToValueAtTime(0.16,now+delay+0.025);
+  gain.gain.exponentialRampToValueAtTime(0.0001,now+delay+0.18);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now+delay);osc.stop(now+delay+0.19);
+ }
+}
+async function refresh(){
+ try{
+  const response=await fetch('/api/status',{cache:'no-store'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const x=await response.json();
+  document.getElementById('wifi').textContent=x.wifi?'Connected':'Offline';
+  document.getElementById('ip').textContent=x.ip;
+  document.getElementById('rcp').textContent=x.rcp;
+  document.getElementById('frames').textContent=x.rcp_frames;
+  document.getElementById('rings').textContent=x.rings;
+  document.getElementById('last').textContent=x.last;
+  if(lastRings!==null&&x.rings>lastRings)tone();
+  lastRings=x.rings;
+ }catch(e){document.getElementById('last').textContent='Status: '+e.message;}
+}
+refresh();setInterval(refresh,700);
+</script></main></body></html>)WEB";
+ h.replace("SSID_VALUE",escapeHtml(ssid));
+ h.replace("HOST_VALUE",escapeHtml(remoteHost));
+ h.replace("PORT_VALUE",String(remotePort));
+ char pinText[9];snprintf(pinText,sizeof(pinText),"%08lu",(unsigned long)localPin);
+ h.replace("PIN_VALUE",String(pinText));
  return h;
 }
+
 static void ring(){
  ringCount++;M5.Speaker.tone(1800,130);
  if(WiFi.status()!=WL_CONNECTED||remoteHost.isEmpty()){lastEvent="not sent: no WiFi/destination";return;}
@@ -130,6 +196,8 @@ void setup(){
  password=prefs.getString("pass","");
  remoteHost=prefs.getString("host","");
  remotePort=prefs.getUShort("port",61631);
+ localPin=prefs.getULong("pin",0);
+ if(!localPin){localPin=esp_random()%90000000UL+10000000UL;prefs.putULong("pin",localPin);}
  uint64_t mac=ESP.getEfuseMac();char suffix[5];
  snprintf(suffix,sizeof(suffix),"%04X",(unsigned)(mac&0xffff));
  apName="Doorbell-RCP-"+String(suffix);
@@ -144,7 +212,8 @@ void setup(){
  web.on("/",HTTP_GET,[]{web.send(200,"text/html; charset=utf-8",page());});
  web.on("/ring",HTTP_POST,[]{ring();web.sendHeader("Location","/");web.send(303);});
  web.on("/probe",HTTP_POST,[]{probeRcp();web.sendHeader("Location","/");web.send(303);});
- web.on("/api/status",HTTP_GET,[]{web.send(200,"application/json",String("{\"rcp_frame_received\":")+(rcpResponded?"true":"false")+",\"rings\":"+String(ringCount)+"}");});
+ web.on("/pin/generate",HTTP_POST,[]{localPin=esp_random()%90000000UL+10000000UL;prefs.putULong("pin",localPin);web.sendHeader("Location","/");web.send(303);});
+ web.on("/api/status",HTTP_GET,[]{web.sendHeader("Cache-Control","no-store");web.send(200,"application/json",statusJson());});
  web.on("/save",HTTP_POST,[]{
    String port=web.arg("port"), newSsid=web.arg("ssid"), newPass=web.arg("pass"), host=web.arg("host");
    newSsid.trim();host.trim();
