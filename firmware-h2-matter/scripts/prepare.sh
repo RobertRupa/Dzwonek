@@ -4,7 +4,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${ESP_MATTER_PATH:?Set ESP_MATTER_PATH to an installed esp-matter checkout}"
 UPSTREAM="$ESP_MATTER_PATH/examples/light_switch"
 DEST="$ROOT/generated/light_switch"
-[[ -f "$UPSTREAM/main/app_main.cpp" ]] || { echo "Missing official light_switch example at $UPSTREAM" >&2; exit 1; }
+if [[ ! -f "$UPSTREAM/main/app_main.cpp" ]]; then
+  echo "ERROR: Missing ESP-Matter light_switch example:" >&2
+  echo "  $UPSTREAM/main/app_main.cpp" >&2
+  echo "ESP_MATTER_PATH=$ESP_MATTER_PATH" >&2
+  echo "Check: ls -la '$ESP_MATTER_PATH/examples'" >&2
+  echo "For a new installation: git clone --recursive https://github.com/espressif/esp-matter.git '$ESP_MATTER_PATH'" >&2
+  echo "Existing clone: inspect the git remote and branch before changing it." >&2
+  echo "Use the ESP-Matter branch compatible with your ESP-IDF release." >&2
+  exit 1
+fi
 mkdir -p "$ROOT/generated"
 rm -rf "$DEST"
 cp -a "$UPSTREAM" "$DEST"
