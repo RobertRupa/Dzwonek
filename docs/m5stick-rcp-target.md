@@ -19,3 +19,14 @@ Button A albo WebGUI `/ring` wysyła komunikat `DOORBELL,StickPlus2,<licznik>` U
 Panel: otwarte AP `Doorbell-RCP-XXXX`, http://192.168.4.1/ (brak uwierzytelnienia; tylko sieć testowa). Konfiguracja nowego targetu jest izolowana w osobnej przestrzeni Preferences `doorbell-rcp`.
 
 **Ograniczenie sprzętowe/architektoniczne:** skompilowanie Matter over Thread na M5StickC Plus2 (klasyczny ESP32, 8 MB flash) wymaga osobnego portu ESP-IDF, OpenThread Host, CHIP i analizy RAM/flash. Nie można uzyskać Matter samym włączeniem binarnego RCP. Wybierz zachowany target `light_switch` na H2, jeśli zależy Ci na Matter bez budowania hosta na Sticku.
+
+
+## Poprawka UDP/DNS i Wi-Fi
+
+W targetcie `m5stickc_plus2_rcp` rozwiązywanie DNS i wysyłka UDP wykonują się w osobnym zadaniu FreeRTOS, dzięki czemu timeout DNS nie blokuje obsługi przycisków ani LCD. Maksymalnie cztery wiadomości oczekują w kolejce; nadmiar jest odrzucany, bez blokowania pętli. Wpisanie adresu IPv4 pomija DNS. Preferuj docelowy adres IPv4 przy testach zamiast hostname.
+
+Hasło WPA ma 8–63 znaków. Pozostawienie pustego pola zachowuje hasło tylko dla tego samego SSID; zmiana SSID wymaga nowego hasła. Dla sieci otwartej użyj dedykowanego przełącznika. Zmiany walidowane są przed zapisem do NVS.
+
+Log `DNS failed: verify destination` wskazuje problem z nazwą odbiorcy lub DNS. Nie potwierdza błędnego hasła do Wi-Fi. Dla diagnostyki sprawdź status połączenia i odbiorcę w WebGUI.
+
+Weryfikacja kompilacji i testy na rzeczywistym sprzęcie pozostają do wykonania.
