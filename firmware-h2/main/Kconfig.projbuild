@@ -1,0 +1,8 @@
+menu "Doorbell Gateway H2 UART"
+  config DB_UART_RX
+    int "H2 RX GPIO (connected to Stick GPIO32 / TX)"
+    default 4
+  config DB_UART_TX
+    int "H2 TX GPIO (connected to Stick GPIO33 / RX)"
+    default 5
+endmenu
