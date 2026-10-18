@@ -54,3 +54,6 @@ venv/
 *.tmp
 *.swp
 *~
+
+# Generated ESP32-H2 native RCP example
+firmware-h2-rcp/generated/
