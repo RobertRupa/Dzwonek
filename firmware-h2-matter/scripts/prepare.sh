@@ -19,6 +19,7 @@ rm -rf "$DEST"
 cp -a "$UPSTREAM" "$DEST"
 cp "$ROOT/overlay/doorbell_uart.cpp" "$DEST/main/doorbell_uart.cpp"
 cp "$ROOT/overlay/doorbell_uart.h" "$DEST/main/doorbell_uart.h"
+cp "$ROOT/overlay/partitions_2mb.csv" "$DEST/partitions.csv"
 cat "$ROOT/overlay/Kconfig.projbuild" >> "$DEST/main/Kconfig.projbuild"
 python3 - "$DEST" <<'PY'
 from pathlib import Path
@@ -45,7 +46,7 @@ s=s.replace('    return (app_driver_handle_t)btns[0];','    return nullptr;')
 p.write_text(s)
 # Ensure correct flash capacity of U195 H2-MINI-1-N2 (2 MB).
 p=root/'sdkconfig.defaults';s=p.read_text().replace('CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y','CONFIG_ESPTOOLPY_FLASHSIZE_2MB=y')
-s+='\nCONFIG_DB_H2_UART_RX=23\nCONFIG_DB_H2_UART_TX=24\nCONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y\nCONFIG_ESP_CONSOLE_UART_DEFAULT=n\n'
+s+='\nCONFIG_ENABLE_OTA_REQUESTOR=n\nCONFIG_ENABLE_CHIP_SHELL=n\nCONFIG_DB_H2_UART_RX=23\nCONFIG_DB_H2_UART_TX=24\nCONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y\nCONFIG_ESP_CONSOLE_UART_DEFAULT=n\n'
 p.write_text(s)
 PY
 printf 'Created %s\n' "$DEST"
